@@ -66,15 +66,25 @@ for file_name, df in st.session_state.dataframes.items():
             st.success("Filled missing values with column means")
     
     with col3:
-        if st.button(f'Detect and Remove Outliers - {file_name}'):
-            numeric_cols = df.select_dtypes(include='number').columns
+        numeric_cols = df.select_dtypes(include='number').columns
+        if st.button(f'Cap Outliers - {file_name}'):
             if not numeric_cols.empty:
-                z_scores = np.abs(stats.zscore(df[numeric_cols]))
-                df = df[(z_scores < 3).all(axis=1)]
+                for col in numeric_cols:
+                    Q1 = df[col].quantile(0.25)
+                    Q3 = df[col].quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - 1.5 * IQR
+                    upper_bound = Q3 + 1.5 * IQR
+                    
+                    # Apply capping instead of removing rows
+                    df[col] = np.where(df[col] < lower_bound, lower_bound, df[col])
+                    df[col] = np.where(df[col] > upper_bound, upper_bound, df[col])
+                
                 st.session_state.dataframes[file_name] = df
-                st.success(f"Outliers removed for {file_name}")
+                st.success(f"Outliers capped for {file_name}")
             else:
-                st.warning("No numeric columns found for outlier detection")
+                st.warning("No numeric columns found for outlier capping")
+
 
     st.subheader(f'📌 Select Columns for {file_name}')
     selected_columns = st.multiselect("Choose columns to keep:", options=df.columns.tolist(), default=df.columns.tolist(), key=f"cols_{file_name}")
